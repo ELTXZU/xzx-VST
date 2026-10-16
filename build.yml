@@ -1,0 +1,29 @@
+name: Build xzx VST (Windows)
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build VST3
+        run: cmake --build build --config Release --target XZX_VST3 --parallel
+
+      - name: Collect plugin
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item -Recurse "build/XZX_artefacts/Release/VST3/xzx VST.vst3" "dist/xzx VST.vst3"
+
+      - name: Upload plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: xzx-VST-windows-vst3
+          path: dist
