@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 # Static runtime on Windows -> plugin works without installing the VC++ redistributable
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-project(XZX VERSION 1.0.0)
+project(XZX VERSION 2.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,7 +16,7 @@ FetchContent_Declare(JUCE
 FetchContent_MakeAvailable(JUCE)
 
 juce_add_plugin(XZX
-    COMPANY_NAME "xzx"
+    COMPANY_NAME "ELTXZU"
     PLUGIN_MANUFACTURER_CODE Xzxx
     PLUGIN_CODE Xzxv
     FORMATS VST3

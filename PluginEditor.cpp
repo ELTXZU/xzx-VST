@@ -5,81 +5,45 @@ XZXEditor::XZXEditor (XZXAudioProcessor& p)
 {
     setLookAndFeel (&laf);
 
-    // ---------- Row 2: IO, Crush, Drive, EQ ----------
-    secIO = makeSection ("Input / Output");
-    secIO->addKnob ("in_gain", "Input");
-    secIO->addKnob ("out_gain", "Output");
-    secIO->addKnob ("mix", "Dry / Wet");
-    secIO->addKnob ("width", "Width");
+    // ---- panels ----
+    creature = std::make_unique<XZXCreature> (proc, accent);
+    addAndMakeVisible (*creature);
 
-    secCrush = makeSection ("Bitcrusher");
-    secCrush->addToggle ("crush_on");
-    secCrush->addKnob ("crush_bits", "Bits");
-    secCrush->addKnob ("crush_rate", "Downsample");
-    secCrush->addKnob ("crush_mix", "Mix");
+    pattern = std::make_unique<XZXPatternPanel> (proc);
+    addAndMakeVisible (*pattern);
 
-    secDrive = makeSection ("Drive");
-    secDrive->addToggle ("drive_on");
-    secDrive->addChoice ("drive_type", "Type");
-    secDrive->addKnob ("drive", "Drive");
-    secDrive->addKnob ("drive_bias", "Bias");
-    secDrive->addKnob ("drive_tone", "Tone");
+    volPanel = std::make_unique<XZXShaperPanel> ("volume shaper - draw it", proc, 0, accent);
+    volPanel->addChoice ("vol_len", "length");
+    volPanel->addKnob ("vol_depth", "depth");
+    addAndMakeVisible (*volPanel);
 
-    secEQ = makeSection ("3-Band EQ");
-    secEQ->addToggle ("eq_on");
-    secEQ->addKnob ("eq_low", "Low");
-    secEQ->addKnob ("eq_mid", "Mid");
-    secEQ->addKnob ("eq_mid_freq", "Mid Freq");
-    secEQ->addKnob ("eq_high", "High");
+    filtPanel = std::make_unique<XZXShaperPanel> ("filter shaper - draw it", proc, 1, accent);
+    filtPanel->addChoice ("filt_type", "filter");
+    filtPanel->addChoice ("filt_len", "length");
+    filtPanel->addKnob ("filt_cut", "cutoff");
+    filtPanel->addKnob ("filt_res", "reso");
+    filtPanel->addKnob ("filt_range", "range");
+    addAndMakeVisible (*filtPanel);
 
-    // ---------- Row 3: Filter, Tremolo, Chorus ----------
-    secFilter = makeSection ("Filter / LFO / Envelope");
-    secFilter->addChoice ("filt_type", "Filter");
-    secFilter->addChoice ("lfo_shape", "LFO Shape");
-    secFilter->addKnob ("filt_cut", "Cutoff");
-    secFilter->addKnob ("filt_res", "Resonance");
-    secFilter->addKnob ("lfo_rate", "LFO Rate");
-    secFilter->addKnob ("lfo_depth", "LFO Depth");
-    secFilter->addKnob ("env_amt", "Env Amt");
-    secFilter->addKnob ("env_rel", "Env Rel");
+    tuningPanel = std::make_unique<XZXPanel> ("glitch tuning", proc.apvts);
+    tuningPanel->addChoice ("stutter_div", "stutter size");
+    tuningPanel->addKnob ("tape_curve", "tape stop");
+    tuningPanel->addKnob ("crush_bits", "crush bits");
+    tuningPanel->addKnob ("crush_rate", "crush rate");
+    addAndMakeVisible (*tuningPanel);
 
-    secTrem = makeSection ("Tremolo / Autopan");
-    secTrem->addToggle ("trem_on");
-    secTrem->addChoice ("trem_shape", "Shape");
-    secTrem->addKnob ("trem_rate", "Rate");
-    secTrem->addKnob ("trem_depth", "Depth");
-    secTrem->addKnob ("trem_stereo", "Stereo");
+    masterPanel = std::make_unique<XZXPanel> ("master", proc.apvts);
+    masterPanel->addKnob ("mix", "dry / wet");
+    masterPanel->addKnob ("out_gain", "output");
+    addAndMakeVisible (*masterPanel);
 
-    secChorus = makeSection ("Chorus / Flanger");
-    secChorus->addToggle ("chorus_on");
-    secChorus->addKnob ("chorus_rate", "Rate");
-    secChorus->addKnob ("chorus_depth", "Depth");
-    secChorus->addKnob ("chorus_delay", "Delay");
-    secChorus->addKnob ("chorus_fb", "Feedback");
-    secChorus->addKnob ("chorus_mix", "Mix");
+    // ---- nap button ----
+    napBtn.setClickingTogglesState (true);
+    napAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, "nap", napBtn);
+    addAndMakeVisible (napBtn);
 
-    // ---------- Row 4: Delay, Reverb ----------
-    secDelay = makeSection ("Delay");
-    secDelay->addToggle ("delay_on");
-    secDelay->addChoice ("delay_mode", "Mode");
-    secDelay->addKnob ("delay_time", "Time");
-    secDelay->addKnob ("delay_fb", "Feedback");
-    secDelay->addKnob ("delay_damp", "Damping");
-    secDelay->addKnob ("delay_spread", "Spread");
-    secDelay->addKnob ("delay_mix", "Mix");
-
-    secReverb = makeSection ("Reverb");
-    secReverb->addToggle ("rev_on");
-    secReverb->addKnob ("rev_size", "Size");
-    secReverb->addKnob ("rev_damp", "Damping");
-    secReverb->addKnob ("rev_width", "Width");
-    secReverb->addKnob ("rev_mix", "Mix");
-
-    spectrum = std::make_unique<XZXSpectrum> (proc, accent);
-    addAndMakeVisible (*spectrum);
-
-    // ---------- top bar ----------
-    for (auto* c : std::initializer_list<juce::Component*> { &presetBox, &prevBtn, &nextBtn, &saveBtn, &randBtn, &themeBox })
+    // ---- header ----
+    for (auto* c : std::initializer_list<juce::Component*> { &presetBox, &prevBtn, &nextBtn, &saveBtn, &diceBtn, &moodDots })
         addAndMakeVisible (c);
 
     presetBox.onChange = [this]
@@ -93,83 +57,45 @@ XZXEditor::XZXEditor (XZXAudioProcessor& p)
     prevBtn.onClick = [this] { stepPreset (-1); };
     nextBtn.onClick = [this] { stepPreset (+1); };
     saveBtn.onClick = [this] { promptSavePreset(); };
-    randBtn.onClick = [this] { proc.randomize(); };
+    diceBtn.onClick = [this] { proc.randomize(); };
 
-    themeBox.addItemList ({ "Cyan", "Magenta", "Lime", "Orange", "Violet", "Red", "Ice", "Gold", "Color Cycle" }, 1);
-    themeBox.onChange = [this]
+    moodDots.onPick = [this] (int i)
     {
-        const int idx = themeBox.getSelectedId() - 1;
-        proc.apvts.state.setProperty ("theme", idx, nullptr);
-        applyTheme (idx);
+        proc.apvts.state.setProperty ("mood", i, nullptr);
+        setMood (i);
     };
 
-    const int savedTheme = juce::jlimit (0, 8, (int) proc.apvts.state.getProperty ("theme", 0));
-    themeBox.setSelectedId (savedTheme + 1, juce::dontSendNotification);
-    applyTheme (savedTheme);
+    laf.setColour (juce::Label::textColourId, xzxcol::ink);
+    laf.setColour (juce::Slider::textBoxTextColourId, xzxcol::ink);
+    laf.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    laf.setColour (juce::ComboBox::textColourId, xzxcol::ink);
+    laf.setColour (juce::TextButton::textColourOffId, xzxcol::ink);
+    laf.setColour (juce::TextButton::textColourOnId, xzxcol::ink);
+    laf.setColour (juce::PopupMenu::backgroundColourId, xzxcol::panel);
+    laf.setColour (juce::PopupMenu::textColourId, xzxcol::ink);
+    laf.setColour (juce::PopupMenu::highlightedTextColourId, xzxcol::ink);
 
+    setMood ((int) proc.apvts.state.getProperty ("mood", 0));
     refreshPresetList (proc.getCurrentProgram() + 1);
 
     setResizable (true, true);
-    setResizeLimits (900, 640, 1800, 1100);
-    setSize (1180, 800);
+    setResizeLimits (880, 600, 1600, 1100);
+    setSize (1060, 700);
 }
 
 XZXEditor::~XZXEditor()
 {
-    stopTimer();
     setLookAndFeel (nullptr);
 }
 
-XZXSection* XZXEditor::makeSection (const juce::String& title)
+void XZXEditor::setMood (int index)
 {
-    auto* s = sections.add (new XZXSection (title, accent, proc.apvts));
-    addAndMakeVisible (s);
-    return s;
-}
-
-void XZXEditor::setAccent (juce::Colour c)
-{
-    accent = c;
-    laf.accent = c;
-}
-
-void XZXEditor::applyTheme (int index)
-{
-    static const juce::uint32 colours[] = { 0xff00e5ff, 0xffff2bd6, 0xffb6ff00, 0xffff9f1c,
-                                            0xff9d7bff, 0xffff3b4e, 0xffa8e6ff, 0xffffd23f };
-    cycling = (index >= 8);
-    if (cycling)
-    {
-        setAccent (juce::Colour::fromHSV (cycleHue, 0.7f, 1.0f, 1.0f));
-        startTimerHz (20);
-    }
-    else
-    {
-        stopTimer();
-        setAccent (juce::Colour (colours[juce::jlimit (0, 7, index)]));
-    }
-
-    laf.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.8f));
-    laf.setColour (juce::Slider::textBoxTextColourId, juce::Colours::white);
-    laf.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
-    laf.setColour (juce::ComboBox::textColourId, juce::Colours::white);
-    laf.setColour (juce::TextButton::textColourOffId, juce::Colours::white);
-    laf.setColour (juce::TextButton::textColourOnId, juce::Colours::white);
-    laf.setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff141720));
-    laf.setColour (juce::PopupMenu::highlightedBackgroundColourId, accent);
-    laf.setColour (juce::PopupMenu::highlightedTextColourId, juce::Colours::black);
-    laf.setColour (juce::PopupMenu::textColourId, juce::Colours::white);
-
+    index = juce::jlimit (0, 4, index);
+    accent = xzxcol::mood (index);
+    laf.accent = accent;
+    laf.setColour (juce::PopupMenu::highlightedBackgroundColourId, accent.withAlpha (0.45f));
+    moodDots.selected = index;
     sendLookAndFeelChange();
-    repaint();
-}
-
-void XZXEditor::timerCallback()
-{
-    if (! cycling) return;
-    cycleHue += 0.004f;
-    if (cycleHue >= 1.0f) cycleHue -= 1.0f;
-    setAccent (juce::Colour::fromHSV (cycleHue, 0.7f, 1.0f, 1.0f));
     repaint();
 }
 
@@ -178,7 +104,7 @@ void XZXEditor::refreshPresetList (int selectId)
     presetBox.clear (juce::dontSendNotification);
     presetIds.clear();
 
-    presetBox.addSectionHeading ("Factory");
+    presetBox.addSectionHeading ("factory");
     const auto& factory = XZXAudioProcessor::factoryPresets();
     for (size_t i = 0; i < factory.size(); ++i)
     {
@@ -190,7 +116,7 @@ void XZXEditor::refreshPresetList (int selectId)
     if (! userFiles.isEmpty())
     {
         presetBox.addSeparator();
-        presetBox.addSectionHeading ("User");
+        presetBox.addSectionHeading ("yours");
         for (int i = 0; i < userFiles.size(); ++i)
         {
             presetBox.addItem (userFiles[i].getFileNameWithoutExtension(), 1000 + i);
@@ -212,10 +138,10 @@ void XZXEditor::stepPreset (int dir)
 
 void XZXEditor::promptSavePreset()
 {
-    auto* w = new juce::AlertWindow ("Save preset", "Name your preset:", juce::MessageBoxIconType::NoIcon);
-    w->addTextEditor ("name", "My Preset");
-    w->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
-    w->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    auto* w = new juce::AlertWindow ("save preset", "name your preset:", juce::MessageBoxIconType::NoIcon);
+    w->addTextEditor ("name", "my glitch");
+    w->addButton ("save", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    w->addButton ("cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
 
     juce::Component::SafePointer<XZXEditor> safe (this);
     w->enterModalState (true,
@@ -236,71 +162,76 @@ void XZXEditor::promptSavePreset()
 
 void XZXEditor::paint (juce::Graphics& g)
 {
-    const auto b = getLocalBounds().toFloat();
-    g.fillAll (juce::Colour (0xff0a0c12));
+    g.fillAll (xzxcol::bg);
 
-    // ambient colour glows
-    g.setGradientFill (juce::ColourGradient (accent.withAlpha (0.16f), 0.0f, 0.0f,
-                                             accent.withAlpha (0.0f), b.getWidth() * 0.55f, b.getHeight() * 0.5f, true));
-    g.fillRect (b);
-    g.setGradientFill (juce::ColourGradient (accent.withAlpha (0.10f), b.getRight(), b.getBottom(),
-                                             accent.withAlpha (0.0f), b.getWidth() * 0.4f, b.getHeight() * 0.5f, true));
-    g.fillRect (b);
+    g.setColour (xzxcol::ink);
+    g.setFont (juce::Font (juce::FontOptions (46.0f, juce::Font::bold)));
+    g.drawText ("xzx", 26, 14, 200, 50, juce::Justification::centredLeft);
 
-    // glowing logo
-    const juce::Rectangle<int> logo (20, 8, 120, 44);
-    g.setFont (juce::Font (juce::FontOptions (36.0f, juce::Font::bold)));
-    for (int i = 6; i >= 1; --i)
-    {
-        g.setColour (accent.withAlpha (0.035f * (float) (7 - i)));
-        for (int dx = -i; dx <= i; dx += i)
-            for (int dy = -i; dy <= i; dy += i)
-                g.drawText ("XZX", logo.translated (dx, dy), juce::Justification::centredLeft);
-    }
-    g.setColour (juce::Colours::white);
-    g.drawText ("XZX", logo, juce::Justification::centredLeft);
+    g.setColour (xzxcol::soft);
+    g.setFont (juce::Font (juce::FontOptions (14.0f)));
+    g.drawText ("a tiny glitch gremlin   -   by eltxzu", 30, 62, 400, 18, juce::Justification::centredLeft);
+
+    g.setColour (xzxcol::border);
+    g.drawHorizontalLine (92, 22.0f, (float) getWidth() - 22.0f);
 
     g.setColour (accent);
-    g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
-    g.drawText ("VST", 112, 22, 50, 20, juce::Justification::centredLeft);
+    g.fillRoundedRectangle (26.0f, 92.0f - 1.0f, 70.0f, 3.0f, 1.5f);
 }
 
 void XZXEditor::resized()
 {
-    auto r = getLocalBounds().reduced (12);
+    auto r = getLocalBounds().reduced (20, 14);
 
-    auto top = r.removeFromTop (44);
-    top.removeFromLeft (170);                         // logo
-    themeBox.setBounds (top.removeFromRight (110).reduced (0, 6));
-    top.removeFromRight (8);
-    randBtn.setBounds (top.removeFromRight (100).reduced (0, 6));
-    top.removeFromRight (8);
-    saveBtn.setBounds (top.removeFromRight (60).reduced (0, 6));
-    top.removeFromRight (8);
-    nextBtn.setBounds (top.removeFromRight (34).reduced (0, 6));
-    top.removeFromRight (4);
-    presetBox.setBounds (top.removeFromRight (juce::jmin (top.getWidth() - 40, 320)).reduced (0, 6));
-    top.removeFromRight (4);
-    prevBtn.setBounds (top.removeFromRight (34).reduced (0, 6));
-
-    r.removeFromTop (6);
-
-    const int specH = juce::roundToInt ((float) r.getHeight() * 0.20f);
-    spectrum->setBounds (r.removeFromTop (specH).reduced (4));
-
-    const int rowH = r.getHeight() / 3;
-    auto layoutRow = [] (juce::Rectangle<int> row, std::initializer_list<XZXSection*> secs)
+    // ---- header ----
+    auto header = r.removeFromTop (70);
     {
-        float total = 0.0f;
-        for (auto* s : secs) total += s->weight();
-        for (auto* s : secs)
-        {
-            const int w = juce::roundToInt ((float) row.getWidth() * s->weight() / total);
-            s->setBounds (row.removeFromLeft (w).reduced (4));
-        }
-    };
+        auto h = header.withTrimmedTop (14).withHeight (30);
+        diceBtn.setBounds (h.removeFromRight (62));
+        h.removeFromRight (8);
+        saveBtn.setBounds (h.removeFromRight (62));
+        h.removeFromRight (8);
+        nextBtn.setBounds (h.removeFromRight (32));
+        h.removeFromRight (4);
+        presetBox.setBounds (h.removeFromRight (210));
+        h.removeFromRight (4);
+        prevBtn.setBounds (h.removeFromRight (32));
+        h.removeFromRight (16);
+        moodDots.setBounds (h.removeFromRight (122));
+    }
+    r.removeFromTop (20);   // room for divider
 
-    layoutRow (r.removeFromTop (rowH), { secIO, secCrush, secDrive, secEQ });
-    layoutRow (r.removeFromTop (rowH), { secFilter, secTrem, secChorus });
-    layoutRow (r,                      { secDelay, secReverb });
+    // ---- body ----
+    const int leftW = juce::jlimit (210, 300, (int) ((float) r.getWidth() * 0.22f));
+    auto left = r.removeFromLeft (leftW);
+    r.removeFromLeft (12);
+
+    creature->setBounds (left.withTrimmedBottom (44));
+    napBtn.setBounds (left.removeFromBottom (32).withSizeKeepingCentre (96, 30));
+
+    const int gap = 12;
+    const int patH = (int) ((float) r.getHeight() * 0.34f);
+    const int botH = (int) ((float) r.getHeight() * 0.22f);
+
+    pattern->setBounds (r.removeFromTop (patH));
+    r.removeFromTop (gap);
+
+    auto bottom = r.removeFromBottom (botH);
+    r.removeFromBottom (gap);
+
+    auto shapers = r;
+    const int sw = (shapers.getWidth() - gap) / 2;
+    volPanel->setBounds (shapers.removeFromLeft (sw));
+    shapers.removeFromLeft (gap);
+    filtPanel->setBounds (shapers);
+
+    const int tw = (int) ((float) (bottom.getWidth() - gap) * 0.68f);
+    tuningPanel->setBounds (bottom.removeFromLeft (tw));
+    bottom.removeFromLeft (gap);
+    masterPanel->setBounds (bottom);
+
+    tuningPanel->layoutControls (tuningPanel->getBounds().withZeroOrigin().reduced (14, 0)
+                                     .withTrimmedTop (22).withTrimmedBottom (6), 0, true);
+    masterPanel->layoutControls (masterPanel->getBounds().withZeroOrigin().reduced (14, 0)
+                                     .withTrimmedTop (22).withTrimmedBottom (6), 0, true);
 }
